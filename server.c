@@ -1,15 +1,6 @@
 #include "common.h"
-#include "list.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <sys/socket.h>
-#include <sys/types.h>
-
-#define BUFSZ 1024
+#define BUFSZ 500
 #define MAX_POKEMON_NAME_LENGTH 10
 #define MAX_NUMBER_OF_POKEMON 40
 
@@ -156,49 +147,64 @@ int main(int argc, char **argv) {
                 printf("%s added ", word);
             }
             printf("\n");
-            // } else if (strcmp(word, "remove") == 0) {
-            //     // Removes Pokémon, if successfully verified
-            //     word = strtok(NULL, " \n");
+        } else if (strcmp(word, "remove") == 0) {
+            // Removes Pokémon, if successfully verified
+            word = strtok(NULL, " \n");
 
-            //     if (removeData(&head, word)) {
-            //         printf("%s removed\n", word);
-            //         numberOfPokemon--;
-            //     } else {
-            //         printf("%s does not exist\n", word);
-            //     }
-            } else if (strcmp(word, "exchange") == 0) {
-                // Trade two Pokémon, if successfully verified
-                // TODO verify the pokemon names
-                char *oldPokemon = strtok(NULL, " ");
-                char *newPokemon = strtok(NULL, " \n");
-                int flag = 0;
-                int pokemonPosition = 0;
+            int flag = 0;
+            int pokemonPosition = 0;
+            for (int i = 0; i < numberOfPokemon; i++) {
+                if (strcmp(pokedex[i], word) == 0) {
+                    flag = 1;
+                    pokemonPosition = i;
+                }
+            }
 
-                //Verify if the oldPokemon is registered
-                for (int i = 0; i < numberOfPokemon; i++) {
-                    if (strcmp(pokedex[i], oldPokemon) == 0) {
-                        flag = 1;
-                        pokemonPosition = i;
-                    }
+            if (!flag) {
+                printf("%s does not exist\n", word);
+                break;
+            } else {
+                for (int i = pokemonPosition; i < numberOfPokemon - 1; i++) {
+                    strcpy(pokedex[i], pokedex[i + 1]);
                 }
-                if (!flag) {
-                    printf("%s does not exist\n", oldPokemon);
-                    break;
-                }
+                strcpy(pokedex[numberOfPokemon - 1], "");
+                numberOfPokemon--;
+                printf("%s removed\n", word);
+            }
+        } else if (strcmp(word, "exchange") == 0) {
+            // Trade two Pokémon, if successfully verified
+            // TODO verify the pokemon names
+            char *oldPokemon = strtok(NULL, " ");
+            char *newPokemon = strtok(NULL, " \n");
+            int flag = 0;
+            int pokemonPosition = 0;
 
-                flag = 0;
-                for (int i = 0; i < numberOfPokemon; i++) {
-                    if (strcmp(pokedex[i], newPokemon) == 0) {
-                        flag = 1;
-                    }
+            // Verify if the oldPokemon is registered
+            for (int i = 0; i < numberOfPokemon; i++) {
+                if (strcmp(pokedex[i], oldPokemon) == 0) {
+                    flag = 1;
+                    pokemonPosition = i;
                 }
-                if (flag) {
-                    printf("%s already exists\n", newPokemon);
-                    break;
-                }
+            }
 
-                strcpy(pokedex[pokemonPosition], newPokemon);
-                printf("%s exchanged\n", oldPokemon);
+            if (!flag) {
+                printf("%s does not exist\n", oldPokemon);
+                break;
+            }
+
+            flag = 0;
+            for (int i = 0; i < numberOfPokemon; i++) {
+                if (strcmp(pokedex[i], newPokemon) == 0) {
+                    flag = 1;
+                }
+            }
+            if (flag) {
+                printf("%s already exists\n", newPokemon);
+                break;
+            }
+
+            strcpy(pokedex[pokemonPosition], newPokemon);
+            printf("%s exchanged\n", oldPokemon);
         } else if (strcmp(word, "list\n") == 0) {
             for (int i = 0; i < numberOfPokemon; i++) {
                 printf("%s ", pokedex[i]);
@@ -208,7 +214,7 @@ int main(int argc, char **argv) {
             logexit("invalid operation");
         }
 
-        sprintf(buf, "remote endpoint: %.1000s\n", caddrstr);
+        sprintf(buf, "remote endpoint: %.480s\n", caddrstr);
         count = send(csock, buf, strlen(buf) + 1, 0);
         if (count != strlen(buf) + 1) {
             logexit("send");

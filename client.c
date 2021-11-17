@@ -1,13 +1,4 @@
 #include "common.h"
-#include "list.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 
 void usage(int argc, char **argv) {
 	printf("usage: %s <server IP> <server port>\n", argv[0]);
@@ -15,7 +6,7 @@ void usage(int argc, char **argv) {
 	exit(EXIT_FAILURE);
 }
 
-#define BUFSZ 1024
+#define BUFSZ 500
 
 int main(int argc, char **argv) {
 	if (argc < 3) {
