@@ -1,13 +1,50 @@
 #include "common.h"
 
-#define BUFSZ 500
-#define MAX_POKEMON_NAME_LENGTH 10
+#define MAX_POKEMON_NAME_LENGTH 11
 #define MAX_NUMBER_OF_POKEMON 40
+#define LETTERS_AND_NUMBERS 36
 
 void usage(int argc, char **argv) {
     printf("usage: %s <v4|v6> <server port>\n", argv[0]);
     printf("example: %s v4 51511\n", argv[0]);
     exit(EXIT_FAILURE);
+}
+
+// Command 'kill' stops the server
+int isKill(char *word) {
+    if (strcmp(word, "kill") == 0 || strcmp(word, "kill\n") == 0 ||
+        strcmp(word, "kill \n") == 0 || strcmp(word, "kill ") == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+// If the Pokémon name has more than 10 chars, or
+// if the Pokémon name has any char other than number and letters
+// it must not be added
+int isInvalidWord(char *word) {
+
+    if (strlen(word) >= MAX_POKEMON_NAME_LENGTH)
+        return 1;
+
+    char validCharacters[LETTERS_AND_NUMBERS] =
+        "0123456789abcdefghijklmnopqrstuvwxyz";
+    int flag = 0;
+    for (int i = 0; i < strlen(word); i++) {
+        for (int j = 0; j < strlen(validCharacters); j++) {
+            if (word[i] == validCharacters[j]) {
+                flag++;
+                break;
+            }
+        }
+    }
+
+    // If flag and word size are equal, the word has only valid
+    // characters
+    if (flag != strlen(word))
+        return 1;
+
+    return 0;
 }
 
 // int alreadyOnPokedex(char **pokedex, char *pokemon, int numberOfPokemon) {
@@ -25,62 +62,63 @@ int main(int argc, char **argv) {
     }
 
     struct sockaddr_storage storage;
-    if (0 != server_sockaddr_init(argv[1], argv[2], &storage)) {
+    if (0 != serverSockaddrInit(argv[1], argv[2], &storage)) {
         usage(argc, argv);
     }
 
-    int s;
-    s = socket(storage.ss_family, SOCK_STREAM, 0);
-    if (s == -1) {
-        logexit("socket");
+    int sock;
+    sock = socket(storage.ss_family, SOCK_STREAM, 0);
+    if (sock == -1) {
+        logExit("socket");
     }
 
     int enable = 1;
-    if (0 != setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) {
-        logexit("setsockopt");
+    if (0 != setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) {
+        logExit("setsockopt");
     }
 
     struct sockaddr *addr = (struct sockaddr *)(&storage);
-    if (0 != bind(s, addr, sizeof(storage))) {
-        logexit("bind");
+    if (0 != bind(sock, addr, sizeof(storage))) {
+        logExit("bind");
     }
 
-    if (0 != listen(s, 10)) {
-        logexit("listen");
+    if (0 != listen(sock, 10)) {
+        logExit("listen");
     }
 
-    char addrstr[BUFSZ];
-    addrtostr(addr, addrstr, BUFSZ);
-    printf("bound to %s, waiting connections\n", addrstr);
+    char addrStr[BUFFER_SIZE];
+    addrToStr(addr, addrStr, BUFFER_SIZE);
+    printf("bound to %s, waiting connections\n", addrStr);
 
     char pokedex[MAX_NUMBER_OF_POKEMON][MAX_POKEMON_NAME_LENGTH];
     // char *pokedex[MAX_POKEMON_NAME_LENGTH];
     int numberOfPokemon = 0;
 
     while (1) {
-        struct sockaddr_storage cstorage;
-        struct sockaddr *caddr = (struct sockaddr *)(&cstorage);
-        socklen_t caddrlen = sizeof(cstorage);
+        printf("run\n");
+        struct sockaddr_storage clientStorage;
+        struct sockaddr *clientAddr = (struct sockaddr *)(&clientStorage);
+        socklen_t clientAddrLength = sizeof(clientStorage);
 
-        int csock = accept(s, caddr, &caddrlen);
-        if (csock == -1) {
-            logexit("accept");
+        int clientSock = accept(sock, clientAddr, &clientAddrLength);
+        if (clientSock == -1) {
+            logExit("accept");
         }
 
-        char caddrstr[BUFSZ];
-        addrtostr(caddr, caddrstr, BUFSZ);
-        printf("[log] connection from %s\n", caddrstr);
+        char clientAddrStr[BUFFER_SIZE];
+        addrToStr(clientAddr, clientAddrStr, BUFFER_SIZE);
+        printf("[log] connection from %s\n", clientAddrStr);
 
-        char buf[BUFSZ];
-        memset(buf, 0, BUFSZ);
-        size_t count = recv(csock, buf, BUFSZ - 1, 0);
-        printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
+        char buffer[BUFFER_SIZE];
+        memset(buffer, 0, BUFFER_SIZE);
+        size_t count = recv(clientSock, buffer, BUFFER_SIZE - 1, 0);
+        printf("[msg] %s, %d bytes: %s\n", clientAddrStr, (int)count, buffer);
 
-        char *word = strtok(buf, " ");
+        char *word = strtok(buffer, " ");
 
         if (strcmp(word, "add") == 0) {
             // Adds a Pokémon, if successfully verified
-            while (buf != NULL) {
+            while (buffer != NULL) {
                 word = strtok(NULL, " \n");
 
                 // Buffer ended
@@ -89,11 +127,8 @@ int main(int argc, char **argv) {
                     break;
                 }
 
-                // Command 'kill' stops the server
-                if (strcmp(word, "kill") == 0 || strcmp(word, "kill\n") == 0 ||
-                    strcmp(word, "kill \n") == 0 ||
-                    strcmp(word, "kill ") == 0) {
-                    logexit("kill");
+                if (isKill(word)) {
+                    logExit("kill");
                 }
 
                 if (numberOfPokemon > 40) {
@@ -101,26 +136,7 @@ int main(int argc, char **argv) {
                     break;
                 }
 
-                if (strlen(word) > 10) {
-                    printf("invalid message ");
-                    continue;
-                }
-
-                char validCharacters[36] =
-                    "0123456789abcdefghijklmnopqrstuvwxyz";
-                int flag = 0;
-                for (int i = 0; i < strlen(word); i++) {
-                    for (int j = 0; j < strlen(validCharacters); j++) {
-                        if (word[i] == validCharacters[j]) {
-                            flag++;
-                            break;
-                        }
-                    }
-                }
-
-                // If flag and word size are equal, the word has only valid
-                // characters
-                if (flag != strlen(word)) {
+                if (isInvalidWord(word)) {
                     printf("invalid message ");
                     continue;
                 }
@@ -130,7 +146,7 @@ int main(int argc, char **argv) {
                 //     continue;
                 // }
 
-                flag = 0;
+                int flag = 0;
                 for (int i = 0; i < numberOfPokemon; i++) {
                     if (strcmp(pokedex[i], word) == 0) {
                         flag = 1;
@@ -147,12 +163,24 @@ int main(int argc, char **argv) {
                 printf("%s added ", word);
             }
             printf("\n");
+
         } else if (strcmp(word, "remove") == 0) {
             // Removes Pokémon, if successfully verified
             word = strtok(NULL, " \n");
 
+            if (isKill(word)) {
+                logExit("kill");
+            }
+
+            // if (isInvalidWord(word)) {
+            //     printf("invalid message ");
+            //     continue;
+            // }
+
             int flag = 0;
             int pokemonPosition = 0;
+
+            // Finds or not the Pokémon position
             for (int i = 0; i < numberOfPokemon; i++) {
                 if (strcmp(pokedex[i], word) == 0) {
                     flag = 1;
@@ -160,10 +188,13 @@ int main(int argc, char **argv) {
                 }
             }
 
+            // If not found, return
             if (!flag) {
                 printf("%s does not exist\n", word);
                 break;
             } else {
+                // If found, remove the Pokémon and move the other Pokémon one
+                // position back
                 for (int i = pokemonPosition; i < numberOfPokemon - 1; i++) {
                     strcpy(pokedex[i], pokedex[i + 1]);
                 }
@@ -171,11 +202,21 @@ int main(int argc, char **argv) {
                 numberOfPokemon--;
                 printf("%s removed\n", word);
             }
+
         } else if (strcmp(word, "exchange") == 0) {
             // Trade two Pokémon, if successfully verified
-            // TODO verify the pokemon names
             char *oldPokemon = strtok(NULL, " ");
             char *newPokemon = strtok(NULL, " \n");
+
+            if (isKill(oldPokemon) || isKill(newPokemon)) {
+                logExit("kill");
+            }
+
+            if (isInvalidWord(oldPokemon) || isInvalidWord(newPokemon)) {
+                printf("invalid message\n");
+                break;
+            }
+
             int flag = 0;
             int pokemonPosition = 0;
 
@@ -193,6 +234,8 @@ int main(int argc, char **argv) {
             }
 
             flag = 0;
+
+            // Verify if the newPokemon already exists
             for (int i = 0; i < numberOfPokemon; i++) {
                 if (strcmp(pokedex[i], newPokemon) == 0) {
                     flag = 1;
@@ -205,21 +248,26 @@ int main(int argc, char **argv) {
 
             strcpy(pokedex[pokemonPosition], newPokemon);
             printf("%s exchanged\n", oldPokemon);
+
         } else if (strcmp(word, "list\n") == 0) {
-            for (int i = 0; i < numberOfPokemon; i++) {
-                printf("%s ", pokedex[i]);
+            if (numberOfPokemon > 0) {
+                for (int i = 0; i < numberOfPokemon; i++) {
+                    printf("%s ", pokedex[i]);
+                }
+                printf("\n");
+            } else {
+                printf("none\n");
             }
-            printf("\n");
         } else {
-            logexit("invalid operation");
+            logExit("invalid operation");
         }
 
-        sprintf(buf, "remote endpoint: %.480s\n", caddrstr);
-        count = send(csock, buf, strlen(buf) + 1, 0);
-        if (count != strlen(buf) + 1) {
-            logexit("send");
+        sprintf(buffer, "remote endpoint: %.480s\n", clientAddrStr);
+        count = send(clientSock, buffer, strlen(buffer) + 1, 0);
+        if (count != strlen(buffer) + 1) {
+            logExit("send");
         }
-        close(csock);
+        close(clientSock);
     }
 
     exit(EXIT_SUCCESS);

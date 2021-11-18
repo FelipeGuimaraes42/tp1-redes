@@ -10,12 +10,14 @@
 
 #include <arpa/inet.h>
 
-void logexit(const char *msg);
+#define BUFFER_SIZE 500
 
-int addrparse(const char *addrstr, const char *portstr,
+void logExit(const char *msg);
+
+int addrParse(const char *addrStr, const char *portStr,
               struct sockaddr_storage *storage);
 
-void addrtostr(const struct sockaddr *addr, char *str, size_t strsize);
+void addrToStr(const struct sockaddr *addr, char *str, size_t strSize);
 
-int server_sockaddr_init(const char *proto, const char *portstr,
+int serverSockaddrInit(const char *proto, const char *portStr,
                          struct sockaddr_storage *storage);
