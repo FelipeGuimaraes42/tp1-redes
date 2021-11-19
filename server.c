@@ -95,7 +95,6 @@ int main(int argc, char **argv) {
     int numberOfPokemon = 0;
 
     while (1) {
-        printf("run\n");
         struct sockaddr_storage clientStorage;
         struct sockaddr *clientAddr = (struct sockaddr *)(&clientStorage);
         socklen_t clientAddrLength = sizeof(clientStorage);
@@ -110,165 +109,197 @@ int main(int argc, char **argv) {
         printf("[log] connection from %s\n", clientAddrStr);
 
         char buffer[BUFFER_SIZE];
-        memset(buffer, 0, BUFFER_SIZE);
-        size_t count = recv(clientSock, buffer, BUFFER_SIZE - 1, 0);
-        printf("[msg] %s, %d bytes: %s\n", clientAddrStr, (int)count, buffer);
 
-        char *word = strtok(buffer, " ");
+        while (1) {
 
-        if (strcmp(word, "add") == 0) {
-            // Adds a Pokémon, if successfully verified
-            while (buffer != NULL) {
-                word = strtok(NULL, " \n");
+            memset(buffer, 0, BUFFER_SIZE);
+            size_t count = recv(clientSock, buffer, BUFFER_SIZE, 0);
+            printf("[msg] %s, %d bytes: %s\n", clientAddrStr, (int)count,
+                   buffer);
 
-                // Buffer ended
-                if (word == NULL) {
-                    fflush(stdin);
-                    break;
+            char *word = strtok(buffer, " ");
+            char message[100] = "";
+
+            if (strcmp(word, "add") == 0) {
+                // Adds a Pokémon, if successfully verified
+                while (buffer != NULL) {
+                    word = strtok(NULL, " \n");
+
+                    // Buffer ended
+                    if (word == NULL) {
+                        fflush(stdin);
+                        break;
+                    }
+
+                    if (isKill(word)) {
+                        logExit("kill");
+                    }
+
+                    if (numberOfPokemon > 40) {
+                        strcat(message, "limit exceeded ");
+                        continue;
+                    }
+
+                    if (isInvalidWord(word)) {
+                        strcat(message, "invalid message ");
+                        continue;
+                    }
+
+                    // if (alreadyOnPokedex(pokedex, word, numberOfPokemon)) {
+                    //     printf("%s already exists\n", word);
+                    //     continue;
+                    // }
+
+                    int flag = 0;
+                    for (int i = 0; i < numberOfPokemon; i++) {
+                        if (strcmp(pokedex[i], word) == 0) {
+                            flag = 1;
+                        }
+                    }
+
+                    if (flag) {
+                        strcat(message, "already exists ");
+                        continue;
+                    }
+
+                    strcpy(pokedex[numberOfPokemon], word);
+                    numberOfPokemon++;
+                    strcat(message, word);
+                    strcat(message, " added ");
                 }
+
+            } else if (strcmp(word, "remove") == 0) {
+                // Removes Pokémon, if successfully verified
+                word = strtok(NULL, " \n");
 
                 if (isKill(word)) {
                     logExit("kill");
                 }
 
-                if (numberOfPokemon > 40) {
-                    printf("limit exceeded ");
-                    break;
-                }
-
                 if (isInvalidWord(word)) {
-                    printf("invalid message ");
+                    strcat(message, "invalid message");
+                    // Talvez precise retirar ou mudar o send de lugar
+                    count = send(clientSock, message, strlen(message), 0);
+                    if (count != strlen(message)) {
+                        logExit("send");
+                    }
                     continue;
                 }
 
-                // if (alreadyOnPokedex(pokedex, word, numberOfPokemon)) {
-                //     printf("%s already exists\n", word);
-                //     continue;
-                // }
-
                 int flag = 0;
+                int pokemonPosition = 0;
+
+                // Finds or not the Pokémon position
                 for (int i = 0; i < numberOfPokemon; i++) {
                     if (strcmp(pokedex[i], word) == 0) {
                         flag = 1;
+                        pokemonPosition = i;
                     }
                 }
 
-                if (flag) {
-                    printf("%s already exists ", word);
+                // If not found, return
+                if (!flag) {
+                    strcat(message, word);
+                    strcat(message, " does not exist");
+                } else {
+                    // If found, remove the Pokémon and move the other Pokémon
+                    // one position back
+                    for (int i = pokemonPosition; i < numberOfPokemon - 1;
+                         i++) {
+                        strcpy(pokedex[i], pokedex[i + 1]);
+                    }
+                    strcpy(pokedex[numberOfPokemon - 1], "");
+                    numberOfPokemon--;
+                    strcat(message, word);
+                    strcat(message, " removed");
+                }
+
+            } else if (strcmp(word, "exchange") == 0) {
+                // Trade two Pokémon, if successfully verified
+                char *oldPokemon = strtok(NULL, " ");
+                char *newPokemon = strtok(NULL, " \n");
+
+                if (isKill(oldPokemon) || isKill(newPokemon)) {
+                    logExit("kill");
+                }
+
+                if (isInvalidWord(oldPokemon) || isInvalidWord(newPokemon)) {
+                    strcat(message, "invalid message");
+                    // Talvez precise retirar ou mudar o send de lugar
+                    count = send(clientSock, message, strlen(message), 0);
+                    if (count != strlen(message)) {
+                        logExit("send");
+                    }
                     continue;
                 }
 
-                strcpy(pokedex[numberOfPokemon], word);
-                numberOfPokemon++;
-                printf("%s added ", word);
-            }
-            printf("\n");
+                int flag = 0;
+                int pokemonPosition = 0;
 
-        } else if (strcmp(word, "remove") == 0) {
-            // Removes Pokémon, if successfully verified
-            word = strtok(NULL, " \n");
-
-            if (isKill(word)) {
-                logExit("kill");
-            }
-
-            // if (isInvalidWord(word)) {
-            //     printf("invalid message ");
-            //     continue;
-            // }
-
-            int flag = 0;
-            int pokemonPosition = 0;
-
-            // Finds or not the Pokémon position
-            for (int i = 0; i < numberOfPokemon; i++) {
-                if (strcmp(pokedex[i], word) == 0) {
-                    flag = 1;
-                    pokemonPosition = i;
-                }
-            }
-
-            // If not found, return
-            if (!flag) {
-                printf("%s does not exist\n", word);
-                break;
-            } else {
-                // If found, remove the Pokémon and move the other Pokémon one
-                // position back
-                for (int i = pokemonPosition; i < numberOfPokemon - 1; i++) {
-                    strcpy(pokedex[i], pokedex[i + 1]);
-                }
-                strcpy(pokedex[numberOfPokemon - 1], "");
-                numberOfPokemon--;
-                printf("%s removed\n", word);
-            }
-
-        } else if (strcmp(word, "exchange") == 0) {
-            // Trade two Pokémon, if successfully verified
-            char *oldPokemon = strtok(NULL, " ");
-            char *newPokemon = strtok(NULL, " \n");
-
-            if (isKill(oldPokemon) || isKill(newPokemon)) {
-                logExit("kill");
-            }
-
-            if (isInvalidWord(oldPokemon) || isInvalidWord(newPokemon)) {
-                printf("invalid message\n");
-                break;
-            }
-
-            int flag = 0;
-            int pokemonPosition = 0;
-
-            // Verify if the oldPokemon is registered
-            for (int i = 0; i < numberOfPokemon; i++) {
-                if (strcmp(pokedex[i], oldPokemon) == 0) {
-                    flag = 1;
-                    pokemonPosition = i;
-                }
-            }
-
-            if (!flag) {
-                printf("%s does not exist\n", oldPokemon);
-                break;
-            }
-
-            flag = 0;
-
-            // Verify if the newPokemon already exists
-            for (int i = 0; i < numberOfPokemon; i++) {
-                if (strcmp(pokedex[i], newPokemon) == 0) {
-                    flag = 1;
-                }
-            }
-            if (flag) {
-                printf("%s already exists\n", newPokemon);
-                break;
-            }
-
-            strcpy(pokedex[pokemonPosition], newPokemon);
-            printf("%s exchanged\n", oldPokemon);
-
-        } else if (strcmp(word, "list\n") == 0) {
-            if (numberOfPokemon > 0) {
+                // Verify if the oldPokemon is registered
                 for (int i = 0; i < numberOfPokemon; i++) {
-                    printf("%s ", pokedex[i]);
+                    if (strcmp(pokedex[i], oldPokemon) == 0) {
+                        flag = 1;
+                        pokemonPosition = i;
+                    }
                 }
-                printf("\n");
+
+                if (!flag) {
+                    strcat(message, oldPokemon);
+                    strcat(message, " does not exist");
+                    // Talvez precise retirar ou mudar o send de lugar
+                    count = send(clientSock, message, strlen(message), 0);
+                    if (count != strlen(message)) {
+                        logExit("send");
+                    }
+                    continue;
+                }
+
+                flag = 0;
+                // Verify if the newPokemon already exists
+                for (int i = 0; i < numberOfPokemon; i++) {
+                    if (strcmp(pokedex[i], newPokemon) == 0) {
+                        flag = 1;
+                    }
+                }
+                if (flag) {
+                    strcat(message, newPokemon);
+                    strcat(message, " already exists");
+                    // Talvez precise retirar ou mudar o send de lugar
+                    count = send(clientSock, message, strlen(message), 0);
+                    if (count != strlen(message)) {
+                        logExit("send");
+                    }
+                    continue;
+                }
+
+                strcpy(pokedex[pokemonPosition], newPokemon);
+
+                strcat(message, oldPokemon);
+                strcat(message, " exchanged");
+
+            } else if (strcmp(word, "list\n") == 0) {
+                if (numberOfPokemon > 0) {
+                    for (int i = 0; i < numberOfPokemon; i++) {
+                        strcat(message, pokedex[i]);
+                        if (i != numberOfPokemon - 1)
+                            strcat(message, " ");
+                    }
+                } else {
+                    strcat(message, "none");
+                }
             } else {
-                printf("none\n");
+                logExit("invalid operation");
             }
-        } else {
-            logExit("invalid operation");
-        }
 
-        sprintf(buffer, "remote endpoint: %.480s\n", clientAddrStr);
-        count = send(clientSock, buffer, strlen(buffer) + 1, 0);
-        if (count != strlen(buffer) + 1) {
-            logExit("send");
+            sprintf(buffer, "remote endpoint: %.480s\n", clientAddrStr);
+            count = send(clientSock, message, strlen(message), 0);
+            if (count != strlen(message)) {
+                logExit("send");
+            }
+            // close(clientSock);
         }
-        close(clientSock);
     }
-
+    close(sock);
     exit(EXIT_SUCCESS);
 }
