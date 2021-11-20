@@ -29,13 +29,13 @@ int main(int argc, char **argv) {
     char addrStr[BUFFER_SIZE];
     addrToStr(addr, addrStr, BUFFER_SIZE);
 
-    printf("connected to %s\n", addrStr);
+    //printf("connected to %s\n", addrStr);
 
     char buf[BUFFER_SIZE];
 	
     while (1) {
         memset(buf, 0, BUFFER_SIZE);
-        printf("mensagem> ");
+        //printf("mensagem> ");
         fgets(buf, BUFFER_SIZE - 1, stdin);
         size_t count = send(sock, buf, strlen(buf), 0);
         if (count != strlen(buf)) {
@@ -54,9 +54,9 @@ int main(int argc, char **argv) {
         // }
         recv(sock, buf, BUFFER_SIZE, 0);
 
-        // close(sock);
-
-        // printf("%s\n", buf);
+        if(strcmp(buf, "kill") == 0){
+            break;
+        }
         puts(buf);
     }
 

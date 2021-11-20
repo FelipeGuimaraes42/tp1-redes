@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
 
     char addrStr[BUFFER_SIZE];
     addrToStr(addr, addrStr, BUFFER_SIZE);
-    printf("bound to %s, waiting connections\n", addrStr);
+    // printf("bound to %s, waiting connections\n", addrStr);
 
     char pokedex[MAX_NUMBER_OF_POKEMON][MAX_POKEMON_NAME_LENGTH];
     // char *pokedex[MAX_POKEMON_NAME_LENGTH];
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 
         char clientAddrStr[BUFFER_SIZE];
         addrToStr(clientAddr, clientAddrStr, BUFFER_SIZE);
-        printf("[log] connection from %s\n", clientAddrStr);
+        // printf("[log] connection from %s\n", clientAddrStr);
 
         char buffer[BUFFER_SIZE];
 
@@ -114,13 +114,17 @@ int main(int argc, char **argv) {
 
             memset(buffer, 0, BUFFER_SIZE);
             size_t count = recv(clientSock, buffer, BUFFER_SIZE, 0);
-            printf("[msg] %s, %d bytes: %s\n", clientAddrStr, (int)count,
-                   buffer);
+            // printf("[msg] %s, %d bytes: %s\n", clientAddrStr, (int)count,
+            // buffer);
 
-            char *word = strtok(buffer, " ");
+            char *word = strtok(buffer, " \n");
             char message[100] = "";
-
-            if (strcmp(word, "add") == 0) {
+            if (isKill(word)) {
+                send(clientSock, word, strlen(word), 0);
+                close(clientSock);
+                close(sock);
+                exit(0);
+            } else if (strcmp(word, "add") == 0) {
                 // Adds a Pokémon, if successfully verified
                 while (buffer != NULL) {
                     word = strtok(NULL, " \n");
@@ -131,11 +135,7 @@ int main(int argc, char **argv) {
                         break;
                     }
 
-                    if (isKill(word)) {
-                        logExit("kill");
-                    }
-
-                    if (numberOfPokemon > 40) {
+                    if (numberOfPokemon >= 40) {
                         strcat(message, "limit exceeded ");
                         continue;
                     }
@@ -158,7 +158,8 @@ int main(int argc, char **argv) {
                     }
 
                     if (flag) {
-                        strcat(message, "already exists ");
+                        strcat(message, word);
+                        strcat(message, " already exists ");
                         continue;
                     }
 
@@ -172,13 +173,8 @@ int main(int argc, char **argv) {
                 // Removes Pokémon, if successfully verified
                 word = strtok(NULL, " \n");
 
-                if (isKill(word)) {
-                    logExit("kill");
-                }
-
                 if (isInvalidWord(word)) {
-                    strcat(message, "invalid message");
-                    // Talvez precise retirar ou mudar o send de lugar
+                    strcat(message, "invalid message\n");
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -219,13 +215,8 @@ int main(int argc, char **argv) {
                 char *oldPokemon = strtok(NULL, " ");
                 char *newPokemon = strtok(NULL, " \n");
 
-                if (isKill(oldPokemon) || isKill(newPokemon)) {
-                    logExit("kill");
-                }
-
                 if (isInvalidWord(oldPokemon) || isInvalidWord(newPokemon)) {
-                    strcat(message, "invalid message");
-                    // Talvez precise retirar ou mudar o send de lugar
+                    strcat(message, "invalid message\n");
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -246,8 +237,7 @@ int main(int argc, char **argv) {
 
                 if (!flag) {
                     strcat(message, oldPokemon);
-                    strcat(message, " does not exist");
-                    // Talvez precise retirar ou mudar o send de lugar
+                    strcat(message, " does not exist\n");
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -264,8 +254,7 @@ int main(int argc, char **argv) {
                 }
                 if (flag) {
                     strcat(message, newPokemon);
-                    strcat(message, " already exists");
-                    // Talvez precise retirar ou mudar o send de lugar
+                    strcat(message, " already exists\n");
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -278,7 +267,7 @@ int main(int argc, char **argv) {
                 strcat(message, oldPokemon);
                 strcat(message, " exchanged");
 
-            } else if (strcmp(word, "list\n") == 0) {
+            } else if (strcmp(word, "list") == 0) {
                 if (numberOfPokemon > 0) {
                     for (int i = 0; i < numberOfPokemon; i++) {
                         strcat(message, pokedex[i]);
@@ -292,12 +281,14 @@ int main(int argc, char **argv) {
                 logExit("invalid operation");
             }
 
-            sprintf(buffer, "remote endpoint: %.480s\n", clientAddrStr);
+            if (message[strlen(message) - 1] == 32) {
+                message[strlen(message) - 1] = '\0';
+            }
+            strcat(message, "\n");
             count = send(clientSock, message, strlen(message), 0);
             if (count != strlen(message)) {
                 logExit("send");
             }
-            // close(clientSock);
         }
     }
     close(sock);
