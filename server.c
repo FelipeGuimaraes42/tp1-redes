@@ -109,13 +109,38 @@ int main(int argc, char **argv) {
         // printf("[log] connection from %s\n", clientAddrStr);
 
         char buffer[BUFFER_SIZE];
+        char receive[BUFFER_SIZE];
+        memset(receive, 0, BUFFER_SIZE);
+        int flagFinished = 0;
+        int i;
 
         while (1) {
 
             memset(buffer, 0, BUFFER_SIZE);
-            size_t count = recv(clientSock, buffer, BUFFER_SIZE, 0);
-            // printf("[msg] %s, %d bytes: %s\n", clientAddrStr, (int)count,
-            // buffer);
+            size_t count = recv(clientSock, buffer, BUFFER_SIZE -1, 0);
+
+            i = 0;
+            while(i < strlen(buffer)){
+                if(buffer[i] == 10){
+                    flagFinished = 1;
+                    break;
+                }
+                i++;
+            }
+            if(!flagFinished){
+                strcpy(receive, buffer);
+                continue;
+            }else{
+                if(strlen(receive)){
+                    char aux[BUFFER_SIZE] = "";
+                    strcat(aux, receive);
+                    strcat(aux, buffer);
+                    strcpy(buffer, aux);
+
+                    memset(receive, 0, BUFFER_SIZE);
+                }
+                flagFinished =0;
+            }
 
             char *word = strtok(buffer, " \n");
             char message[100] = "";
