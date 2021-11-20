@@ -101,39 +101,45 @@ int main(int argc, char **argv) {
         char completeBuffer[BUFFER_SIZE];
         char actualBuffer[BUFFER_SIZE];
 
-        int bufferFlag, flag;
-        bufferFlag = flag = 0;
+        int hasLineBreaker, flag, isFirstRun;
+        hasLineBreaker = flag = 0;
+        isFirstRun = 1;
 
-        memset(actualBuffer, 0, BUFFER_SIZE);
+        memset(completeBuffer, 0, BUFFER_SIZE);
 
         while (1) {
+            memset(actualBuffer, 0, BUFFER_SIZE);
 
-            memset(completeBuffer, 0, BUFFER_SIZE);
-            size_t count = recv(clientSock, completeBuffer, BUFFER_SIZE, 0);
+            size_t count = recv(clientSock, actualBuffer, BUFFER_SIZE, 0);
 
-            for (int i = 0; i < strlen(completeBuffer); i++) {
-                if (completeBuffer[i] == '\n') {
-                    bufferFlag = 1;
+            // Verify if the message sent by client has \n
+            for (int i = 0; i < strlen(actualBuffer); i++) {
+                if (actualBuffer[i] == '\n') {
+                    hasLineBreaker = 1;
                     break;
                 }
             }
-            if (!bufferFlag) {
-                strcpy(actualBuffer, completeBuffer);
-                continue;
-            } else {
-                if (strlen(actualBuffer) != 0) {
-                    char temp[BUFFER_SIZE] = "";
-                    strcat(temp, actualBuffer);
-                    strcat(temp, completeBuffer);
-                    strcpy(completeBuffer, temp);
 
-                    memset(actualBuffer, 0, BUFFER_SIZE);
+            if (hasLineBreaker) {
+                // \n was found
+                // Only on first run it must not concat the buffer
+                if (isFirstRun) {
+                    strcpy(completeBuffer, actualBuffer);
+                } else {
+                    strcat(completeBuffer, actualBuffer);
                 }
-                bufferFlag = 0;
+                // Reset the flags
+                hasLineBreaker = 0;
+                isFirstRun = 1;
+            } else {
+                // \n was not found, so it will run again to fill the buffer
+                strcat(completeBuffer, actualBuffer);
+                isFirstRun = 0;
+                continue;
             }
 
             char *word = strtok(completeBuffer, " \n");
-            char message[100] = "";
+            char message[BUFFER_SIZE] = "";
             if (isKill(word)) {
                 send(clientSock, word, strlen(word), 0);
                 close(clientSock);
@@ -189,6 +195,7 @@ int main(int argc, char **argv) {
 
                 if (isInvalidWord(word)) {
                     strcat(message, "invalid message\n");
+                    memset(completeBuffer, 0, BUFFER_SIZE);
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -232,6 +239,7 @@ int main(int argc, char **argv) {
 
                 if (isInvalidWord(oldPokemon) || isInvalidWord(newPokemon)) {
                     strcat(message, "invalid message\n");
+                    memset(completeBuffer, 0, BUFFER_SIZE);
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -255,6 +263,7 @@ int main(int argc, char **argv) {
                 if (!flag) {
                     strcat(message, oldPokemon);
                     strcat(message, " does not exist\n");
+                    memset(completeBuffer, 0, BUFFER_SIZE);
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -275,6 +284,7 @@ int main(int argc, char **argv) {
                 if (flag) {
                     strcat(message, newPokemon);
                     strcat(message, " already exists\n");
+                    memset(completeBuffer, 0, BUFFER_SIZE);
                     count = send(clientSock, message, strlen(message), 0);
                     if (count != strlen(message)) {
                         logExit("send");
@@ -306,6 +316,7 @@ int main(int argc, char **argv) {
                 message[strlen(message) - 1] = '\0';
             }
             strcat(message, "\n");
+            memset(completeBuffer, 0, BUFFER_SIZE);
             count = send(clientSock, message, strlen(message), 0);
             if (count != strlen(message)) {
                 logExit("send");
