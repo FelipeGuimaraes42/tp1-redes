@@ -20,12 +20,13 @@ int isKill(char *word) {
 }
 
 // If the Pokémon name has more than 10 chars, or
-// if the Pokémon name has any char other than number and letters
+// if the Pokémon name has any char other than numbers and lower case letters,
 // it must not be added
 int isInvalidWord(char *word) {
 
-    if (strlen(word) >= MAX_POKEMON_NAME_LENGTH)
+    if (strlen(word) >= MAX_POKEMON_NAME_LENGTH) {
         return 1;
+    }
 
     char validCharacters[LETTERS_AND_NUMBERS] =
         "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -41,20 +42,12 @@ int isInvalidWord(char *word) {
 
     // If flag and word size are equal, the word has only valid
     // characters
-    if (flag != strlen(word))
+    if (flag != strlen(word)) {
         return 1;
+    }
 
     return 0;
 }
-
-// int alreadyOnPokedex(char **pokedex, char *pokemon, int numberOfPokemon) {
-//     for (int i = 0; i < numberOfPokemon; i++) {
-//         if (strcmp(pokedex[i], pokemon) == 0) {
-//             return 1;
-//         }
-//     }
-//     return 0;
-// }
 
 int main(int argc, char **argv) {
     if (argc < 3) {
@@ -88,10 +81,8 @@ int main(int argc, char **argv) {
 
     char addrStr[BUFFER_SIZE];
     addrToStr(addr, addrStr, BUFFER_SIZE);
-    // printf("bound to %s, waiting connections\n", addrStr);
 
     char pokedex[MAX_NUMBER_OF_POKEMON][MAX_POKEMON_NAME_LENGTH];
-    // char *pokedex[MAX_POKEMON_NAME_LENGTH];
     int numberOfPokemon = 0;
 
     while (1) {
@@ -106,43 +97,42 @@ int main(int argc, char **argv) {
 
         char clientAddrStr[BUFFER_SIZE];
         addrToStr(clientAddr, clientAddrStr, BUFFER_SIZE);
-        // printf("[log] connection from %s\n", clientAddrStr);
 
-        char buffer[BUFFER_SIZE];
-        char receive[BUFFER_SIZE];
-        memset(receive, 0, BUFFER_SIZE);
-        int flagFinished = 0;
-        int i;
+        char completeBuffer[BUFFER_SIZE];
+        char actualBuffer[BUFFER_SIZE];
+
+        int bufferFlag, flag;
+        bufferFlag = flag = 0;
+
+        memset(actualBuffer, 0, BUFFER_SIZE);
 
         while (1) {
 
-            memset(buffer, 0, BUFFER_SIZE);
-            size_t count = recv(clientSock, buffer, BUFFER_SIZE -1, 0);
+            memset(completeBuffer, 0, BUFFER_SIZE);
+            size_t count = recv(clientSock, completeBuffer, BUFFER_SIZE, 0);
 
-            i = 0;
-            while(i < strlen(buffer)){
-                if(buffer[i] == 10){
-                    flagFinished = 1;
+            for (int i = 0; i < strlen(completeBuffer); i++) {
+                if (completeBuffer[i] == '\n') {
+                    bufferFlag = 1;
                     break;
                 }
-                i++;
             }
-            if(!flagFinished){
-                strcpy(receive, buffer);
+            if (!bufferFlag) {
+                strcpy(actualBuffer, completeBuffer);
                 continue;
-            }else{
-                if(strlen(receive)){
-                    char aux[BUFFER_SIZE] = "";
-                    strcat(aux, receive);
-                    strcat(aux, buffer);
-                    strcpy(buffer, aux);
+            } else {
+                if (strlen(actualBuffer) != 0) {
+                    char temp[BUFFER_SIZE] = "";
+                    strcat(temp, actualBuffer);
+                    strcat(temp, completeBuffer);
+                    strcpy(completeBuffer, temp);
 
-                    memset(receive, 0, BUFFER_SIZE);
+                    memset(actualBuffer, 0, BUFFER_SIZE);
                 }
-                flagFinished =0;
+                bufferFlag = 0;
             }
 
-            char *word = strtok(buffer, " \n");
+            char *word = strtok(completeBuffer, " \n");
             char message[100] = "";
             if (isKill(word)) {
                 send(clientSock, word, strlen(word), 0);
@@ -151,7 +141,7 @@ int main(int argc, char **argv) {
                 exit(0);
             } else if (strcmp(word, "add") == 0) {
                 // Adds a Pokémon, if successfully verified
-                while (buffer != NULL) {
+                while (completeBuffer != NULL) {
                     word = strtok(NULL, " \n");
 
                     // Buffer ended
@@ -170,24 +160,23 @@ int main(int argc, char **argv) {
                         continue;
                     }
 
-                    // if (alreadyOnPokedex(pokedex, word, numberOfPokemon)) {
-                    //     printf("%s already exists\n", word);
-                    //     continue;
-                    // }
-
-                    int flag = 0;
+                    flag = 0;
+                    // Verify if the Pokémon is already registered
                     for (int i = 0; i < numberOfPokemon; i++) {
                         if (strcmp(pokedex[i], word) == 0) {
                             flag = 1;
+                            break;
                         }
                     }
 
+                    // If exists, go to the next one
                     if (flag) {
                         strcat(message, word);
                         strcat(message, " already exists ");
                         continue;
                     }
 
+                    // Save the new Pokémon
                     strcpy(pokedex[numberOfPokemon], word);
                     numberOfPokemon++;
                     strcat(message, word);
@@ -207,14 +196,15 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                int flag = 0;
+                flag = 0;
                 int pokemonPosition = 0;
 
-                // Finds or not the Pokémon position
+                // Tries to find the Pokémon position
                 for (int i = 0; i < numberOfPokemon; i++) {
                     if (strcmp(pokedex[i], word) == 0) {
                         flag = 1;
                         pokemonPosition = i;
+                        break;
                     }
                 }
 
@@ -249,7 +239,7 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                int flag = 0;
+                flag = 0;
                 int pokemonPosition = 0;
 
                 // Verify if the oldPokemon is registered
@@ -257,9 +247,11 @@ int main(int argc, char **argv) {
                     if (strcmp(pokedex[i], oldPokemon) == 0) {
                         flag = 1;
                         pokemonPosition = i;
+                        break;
                     }
                 }
 
+                // If not found, cannot exchange
                 if (!flag) {
                     strcat(message, oldPokemon);
                     strcat(message, " does not exist\n");
@@ -275,8 +267,11 @@ int main(int argc, char **argv) {
                 for (int i = 0; i < numberOfPokemon; i++) {
                     if (strcmp(pokedex[i], newPokemon) == 0) {
                         flag = 1;
+                        break;
                     }
                 }
+
+                // If the Pokémon is already registered, go to the next command
                 if (flag) {
                     strcat(message, newPokemon);
                     strcat(message, " already exists\n");
@@ -287,6 +282,7 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
+                // Exchange Pokémon
                 strcpy(pokedex[pokemonPosition], newPokemon);
 
                 strcat(message, oldPokemon);
@@ -306,7 +302,7 @@ int main(int argc, char **argv) {
                 logExit("invalid operation");
             }
 
-            if (message[strlen(message) - 1] == 32) {
+            if (message[strlen(message) - 1] == ' ') {
                 message[strlen(message) - 1] = '\0';
             }
             strcat(message, "\n");

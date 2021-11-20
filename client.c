@@ -29,35 +29,24 @@ int main(int argc, char **argv) {
     char addrStr[BUFFER_SIZE];
     addrToStr(addr, addrStr, BUFFER_SIZE);
 
-    //printf("connected to %s\n", addrStr);
+    char buffer[BUFFER_SIZE];
 
-    char buf[BUFFER_SIZE];
-	
     while (1) {
-        memset(buf, 0, BUFFER_SIZE);
-        //printf("mensagem> ");
-        fgets(buf, BUFFER_SIZE - 1, stdin);
-        size_t count = send(sock, buf, strlen(buf), 0);
-        if (count != strlen(buf)) {
+        memset(buffer, 0, BUFFER_SIZE);
+        fgets(buffer, BUFFER_SIZE - 1, stdin);
+        size_t count = send(sock, buffer, strlen(buffer), 0);
+        if (count != strlen(buffer)) {
             logExit("send");
         }
 
-        memset(buf, 0, BUFFER_SIZE);
-        // unsigned total = 0;
-        // while(1) {
-        // 	count = recv(sock, buf + total, BUFFER_SIZE - total, 0);
-        // 	if (count == 0) {
-        // 		// Connection terminated.
-        // 		break;
-        // 	}
-        // 	total += count;
-        // }
-        recv(sock, buf, BUFFER_SIZE, 0);
+        memset(buffer, 0, BUFFER_SIZE);
 
-        if(strcmp(buf, "kill") == 0){
+        recv(sock, buffer, BUFFER_SIZE, 0);
+
+        if (strcmp(buffer, "kill") == 0) {
             break;
         }
-        puts(buf);
+        puts(buffer);
     }
 
     close(sock);
